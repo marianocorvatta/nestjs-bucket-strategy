@@ -10,17 +10,11 @@ import { StorageTypeEnum } from './bucket.enum';
 export const s3Client = new S3Client({ region: process.env.AWS_REGION });
 
 @Injectable()
-export class AwsService implements BucketService {
-  private readonly logger = new Logger('AwsService');
+export class AwsService extends BucketService {
+  private readonly logger = new Logger('AwsServiceStrategy');
 
   async put(uploadImageDTO: UploadImageDTO): Promise<UploadImageResponseDTO> {
-    const mimeType = uploadImageDTO.mimeType;
-    const fileExtension = mimeType.split('/')[1];
-    const fileName = `${randomName()}.${fileExtension}`;
-    const base64Buffer = Buffer.from(
-      uploadImageDTO.base64.replace(/^data:image\/\w+;base64,/, ''),
-      'base64',
-    );
+    const { fileName, base64Buffer, mimeType } = this.dtoToStrategy(uploadImageDTO);
 
     const params = {
       Bucket: process.env.AWS_S3_BUCKET_NAME || 'nest-api-template',

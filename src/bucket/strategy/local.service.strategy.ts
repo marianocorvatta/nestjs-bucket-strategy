@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import * as fs from 'fs';
 import { join } from 'path';
 
@@ -9,24 +9,26 @@ import { UploadImageDTO } from '../dto/upload-image.dto';
 import { StorageTypeEnum } from './bucket.enum';
 
 @Injectable()
-export class LocalService implements BucketService {
-  private readonly logger = new Logger('LocalService');
+export class LocalService extends BucketService {
+  private readonly logger = new Logger('LocalServiceStrategy');
 
   async put(uploadImageDTO: UploadImageDTO): Promise<UploadImageResponseDTO> {
-    const mimeType = uploadImageDTO.mimeType;
-    const fileExtension = mimeType.split('/')[1];
-    const fileName = `${randomName()}.${fileExtension}`;
-    const base64Buffer = Buffer.from(
-      uploadImageDTO.base64.replace(/^data:image\/\w+;base64,/, ''),
-      'base64',
-    );
-    await fs.writeFile(
-      join(process.cwd(), 'images', fileName),
-      base64Buffer,
-      (err) => {
-        err && this.logger.error(err);
-      },
-    );
+    const { fileName, base64Buffer } = this.dtoToStrategy(uploadImageDTO);
+
+    try {
+      await fs.writeFile(
+        join(process.cwd(), 'images', fileName),
+        base64Buffer,
+        (err) => {
+          err && this.logger.error(err);
+        },
+      );
+    } catch (error) {
+      this.logger.error(error);
+      throw new ServiceUnavailableException(
+        'The file upload service is having problems, please try again later.',
+      );
+    }
 
     return { fileName, storage: StorageTypeEnum.LOCAL_HOST };
   }
